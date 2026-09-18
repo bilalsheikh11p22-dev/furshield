@@ -3,7 +3,11 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 
-const UPLOAD_ROOT = path.join(process.cwd(), "src", "uploads");
+import os from "os";
+
+export const UPLOAD_ROOT = process.env.VERCEL
+  ? path.join(os.tmpdir(), "uploads")            // Vercel par /tmp
+  : path.join(process.cwd(), "src", "uploads");  // local par purana path
 
 const IMAGE_TYPES = [
   ".jpg",
