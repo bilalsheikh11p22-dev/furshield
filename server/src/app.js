@@ -6,6 +6,8 @@ import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
 import path from "path";
 
+import { connectDB } from "./config/db.js"; // NAYA
+
 import authRoutes from "./routes/authRoutes.js";
 import petRoutes from "./routes/petRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
@@ -31,6 +33,8 @@ import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
+app.set("trust proxy", 1); // NAYA: Vercel proxy ke peeche rate limiter ke liye
+
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
 app.use(express.json({ limit: "2mb" }));
@@ -45,6 +49,16 @@ app.use("/uploads", (req, res, next) => {
   res.set("Cross-Origin-Resource-Policy", "cross-origin");
   next();
 }, express.static(path.join(process.cwd(), "src", "uploads")));
+
+// NAYA: /api ki har request se pehle DB connection confirm karega
+app.use("/api", async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
 app.use("/api", limiter);
