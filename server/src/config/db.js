@@ -1,15 +1,5 @@
 import dns from "node:dns";
 import mongoose from "mongoose";
-import { connectDB } from "./config/db.js";
-
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
 
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
@@ -44,5 +34,3 @@ export async function connectDB() {
     process.exit(1);
   }
 }
-
-export default app;
