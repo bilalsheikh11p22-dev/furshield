@@ -3,34 +3,46 @@ import mongoose from "mongoose";
 
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
+// Vercel par warm function dobara chale to purana connection reuse ho
+const cached = global._mongoose || (global._mongoose = { conn: null, promise: null });
+
 export async function connectDB() {
   const uri = process.env.MONGO_URI;
 
   if (!uri) {
-    console.error("MONGO_URI is not set. Check server/.env");
-    process.exit(1);
+    throw new Error("MONGO_URI is not set");
   }
 
-  try {
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
     console.log("Connecting to MongoDB Atlas...");
 
-    await mongoose.connect(uri, {
-      family: 4,
-      tls: true,
-      serverSelectionTimeoutMS: 30000,
-      connectTimeoutMS: 30000,
-      socketTimeoutMS: 30000,
-      maxPoolSize: 5,
-      retryWrites: true,
-      retryReads: true
-    });
-
-    await mongoose.connection.db.admin().command({ ping: 1 });
-
-    console.log("MongoDB Atlas connected and ping successful");
-  } catch (error) {
-    console.error("MongoDB connection error:");
-    console.error(error);
-    process.exit(1);
+    cached.promise = mongoose
+      .connect(uri, {
+        family: 4,
+        tls: true,
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 30000,
+        maxPoolSize: 5,
+        retryWrites: true,
+        retryReads: true,
+        bufferCommands: false,
+      })
+      .then(async (m) => {
+        await m.connection.db.admin().command({ ping: 1 });
+        console.log("MongoDB Atlas connected and ping successful");
+        return m;
+      })
+      .catch((err) => {
+        cached.promise = null; // agli request dobara try kare
+        throw err;
+      });
   }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
 }
