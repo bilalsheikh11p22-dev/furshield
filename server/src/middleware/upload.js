@@ -1,50 +1,16 @@
 import multer from "multer";
 import path from "path";
-import fs from "fs";
-import crypto from "crypto";
-
 import os from "os";
 
+// Purane imports na toot jayein, is liye export rakha hai. Ab isme files save nahi hoti.
 export const UPLOAD_ROOT = process.env.VERCEL
-  ? path.join(os.tmpdir(), "uploads")            // Vercel par /tmp
-  : path.join(process.cwd(), "src", "uploads");  // local par purana path
+  ? path.join(os.tmpdir(), "uploads")
+  : path.join(process.cwd(), "src", "uploads");
 
-const IMAGE_TYPES = [
-  ".jpg",
-  ".jpeg",
-  ".jfif",
-  ".png",
-  ".webp",
-];
-
+const IMAGE_TYPES = [".jpg", ".jpeg", ".jfif", ".png", ".webp"];
 const VIDEO_TYPES = [".mp4", ".webm", ".mov"];
-
 // Documents: vet certificates, X-rays, lab reports, insurance policies.
 const DOCUMENT_TYPES = [".pdf", ".jpg", ".jpeg", ".jfif", ".png", ".webp"];
-
-function makeStorage(subfolder) {
-  const dest = path.join(UPLOAD_ROOT, subfolder);
-
-  if (!fs.existsSync(dest)) {
-    fs.mkdirSync(dest, { recursive: true });
-  }
-
-  return multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, dest);
-    },
-
-    filename: (req, file, cb) => {
-      const unique = crypto.randomBytes(8).toString("hex");
-      const ext = path.extname(file.originalname).toLowerCase();
-
-      cb(
-        null,
-        `${Date.now()}-${unique}${ext}`
-      );
-    },
-  });
-}
 
 function fileFilterFor(allowedExts) {
   return (req, file, cb) => {
@@ -52,9 +18,7 @@ function fileFilterFor(allowedExts) {
 
     if (!allowedExts.includes(ext)) {
       return cb(
-        new Error(
-          `Unsupported file type: ${ext}. Allowed: ${allowedExts.join(", ")}`
-        )
+        new Error(`Unsupported file type: ${ext}. Allowed: ${allowedExts.join(", ")}`)
       );
     }
 
@@ -62,32 +26,24 @@ function fileFilterFor(allowedExts) {
   };
 }
 
+// File disk par nahi, memory (req.file.buffer) mein aayegi
+const storage = multer.memoryStorage();
+
+// Vercel ki request limit 4.5 MB hai, is liye limits 4 MB rakhi hain
 export const uploadImageMiddleware = multer({
-  storage: makeStorage("images"),
-
+  storage,
   fileFilter: fileFilterFor(IMAGE_TYPES),
-
-  limits: {
-    fileSize: 5 * 1024 * 1024,
-  },
+  limits: { fileSize: 4 * 1024 * 1024 },
 }).single("image");
 
 export const uploadVideoMiddleware = multer({
-  storage: makeStorage("videos"),
-
+  storage,
   fileFilter: fileFilterFor(VIDEO_TYPES),
-
-  limits: {
-    fileSize: 30 * 1024 * 1024,
-  },
+  limits: { fileSize: 4 * 1024 * 1024 },
 }).single("video");
 
 export const uploadDocumentMiddleware = multer({
-  storage: makeStorage("documents"),
-
+  storage,
   fileFilter: fileFilterFor(DOCUMENT_TYPES),
-
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-  },
+  limits: { fileSize: 4 * 1024 * 1024 },
 }).single("document");
